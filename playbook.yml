@@ -1,0 +1,66 @@
+---
+- hosts: all
+  become: yes
+  vars_files:
+    - ./vars/playbook/external_vars.yml
+
+  tasks:
+#   - name: Update all packages to their latest version
+#     apt:
+#       name: "{{ package_name }}"
+#       state: latest
+
+#   - name: Install required system packages
+#     apt:
+#       pkg:
+#         - apt-transport-https
+#         - ca-certificates
+#         - curl
+#         - software-properties-common
+#         - python3-pip
+#         - virtualenv
+#         - python3-setuptools
+#       state: latest
+#       update_cache: true
+
+# # https://www.digitalocean.com/community/tutorials/how-to-use-ansible-to-install-and-set-up-docker-on-ubuntu-20-04#:~:text=installed%20as%20well%3A-,playbook.yml,-%2D%20name%3A
+#   - name: Add Docker GPG apt Key
+#     apt_key:
+#       url: https://download.docker.com/linux/ubuntu/gpg
+#       state: present
+
+#   - name: Add Docker Repository
+#     apt_repository:
+#       repo: deb https://download.docker.com/linux/ubuntu focal stable
+#       state: present
+
+#   - name: Update apt and install docker-ce
+#     apt:
+#       name: docker-ce
+#       state: latest
+#       update_cache: true
+
+#   - name: Python Modules
+#     pip:
+#       name: "{{ python_module }}"
+
+#https://docs.ansible.com/ansible/latest/collections/community/docker/docker_login_module.html#examples
+  - name: Log into DockerHub
+    community.docker.docker_login:
+      username: "{{ docker_login_username }}" 
+      password: "{{ docker_login_password }}"  
+
+  - name: Start a container and use an env file
+    community.docker.docker_container:
+      name: "{{ container_name }}"
+      image: "{{ docker_image + ':' + docker_image_tag }}"
+      env:
+        TF_VERSION: "{{ tf_version }}"
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        NAME_OF_CLUSTER: "{{ name_of_cluster }}"
+      recreate: yes
+
+  - name: Log out of DockerHub
+    community.docker.docker_login:
+      state: absent
