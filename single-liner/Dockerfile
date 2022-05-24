@@ -13,6 +13,6 @@ RUN yum install git -y &&\
     sh ./get_helm.sh
 ENV PATH="/root/.tfenv/bin:$PATH"
 RUN mkdir /work
-COPY ./new.sh /work
-RUN chmod u+x /work/new.sh
 WORKDIR /work
+COPY ./new.sh /
+RUN chmod u+x /new.sh
