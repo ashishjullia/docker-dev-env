@@ -1,8 +1,8 @@
 ### To build your own image
 ```bash
-git clone https://github.com/ashishjullia/docker-dev-awscli.git
+git clone https://github.com/ashishjullia/docker-dev-awscli.git && cd ansible/single-liner
 ```
-####Create and ".env" file to pass the secrets
+#### Create and ".env" file to pass the secrets
 ```bash
 TF_VERSION=
 AWS_ACCESS_KEY_ID=
@@ -32,7 +32,7 @@ alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env --entrypoi
 ```bash
 alias dot="source ~/.bashrc"
 ```
-###Action
+### Action
 ###### Run the following commands series in whichever directory you want the docker development environment.
 
 ```bash
