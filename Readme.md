@@ -17,11 +17,11 @@ FLUX_VERSION=
 docker build -t terraform-aws-cli .
 ```
 ```bash
-docker image tag terraform-aws-cli ashishjullia19/terraform-aws-cli:1.0
+docker image tag terraform-aws-cli ashishjullia19/terraform-aws-cli
 ```
 ###### Note: If you are pushing the image to a private dockerhub repository, make sure to run "docker login" first.
 ```bash
-docker image push ashishjullia19/terraform-aws-cli:1.0
+docker image push ashishjullia19/terraform-aws-cli
 ```
 ### Edit your "~/.bashrc" and place the following "aliases" at the bottom of the file
 
@@ -30,7 +30,7 @@ vim ~/.bashrc
 ```
 
 ```bash
-alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env --entrypoint /new.sh ashishjullia19/terraform-aws-cli:5.0"
+alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env --entrypoint /new.sh ashishjullia19/terraform-aws-cli"
 ```
 
 ```bash
