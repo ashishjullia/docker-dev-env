@@ -7,7 +7,11 @@ git clone https://github.com/ashishjullia/docker-dev-awscli.git && cd ansible/si
 TF_VERSION=
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
+AWS_REGION=
 NAME_OF_CLUSTER=
+
+# Extra Utilities (Will be installed, only if populated)
+FLUX_VERSION=
 ```
 ```bash
 docker build -t terraform-aws-cli .
