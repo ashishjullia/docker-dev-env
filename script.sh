@@ -20,14 +20,11 @@ function error_exit {
 [[ -z "${AWS_ACCESS_KEY_ID}" ]] && error_exit "AWS_ACCESS_KEY_ID is not set."
 [[ -z "${AWS_SECRET_ACCESS_KEY}" ]] && error_exit "AWS_SECRET_ACCESS_KEY is not set."
 
-# Install the specified version of Terraform if TF_VERSION is set
-if [[ -n "${TF_VERSION}" ]]; then
-    echo "Installing Terraform version: ${TF_VERSION}"
-    # Exit with an error message if the installation fails
-    tfenv install $TF_VERSION || error_exit "Failed to install Terraform version: ${TF_VERSION}"
-    # Exit with an error message if switching to the specified version fails
-    tfenv use $TF_VERSION || error_exit "Failed to switch to Terraform version: ${TF_VERSION}"
-fi
+# If TF_VERSION is set, use that. Otherwise, default to the latest version
+TF_VERSION="${TF_VERSION:-latest}"
+echo "Installing Terraform version: ${TF_VERSION}"
+tfenv install $TF_VERSION || error_exit "Failed to install Terraform version: ${TF_VERSION}"
+tfenv use $TF_VERSION || error_exit "Failed to switch to Terraform version: ${TF_VERSION}"
 
 # Configure AWS
 echo "Configuring AWS with region: ${AWS_REGION}"
