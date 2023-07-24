@@ -30,7 +30,7 @@ vim ~/.bashrc
 ```
 
 ```bash
-alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env --entrypoint /new.sh ashishjullia19/terraform-aws-cli"
+alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env --entrypoint /script.sh ashishjullia19/terraform-aws-cli"
 ```
 
 ```bash
