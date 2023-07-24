@@ -17,5 +17,5 @@ RUN yum install -y \
 ENV PATH="/root/.tfenv/bin:$PATH"
 RUN mkdir /work
 WORKDIR /work
-COPY ./new.sh /
-RUN chmod u+x /new.sh
+COPY ./script.sh /
+RUN chmod u+x /script.sh
