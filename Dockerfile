@@ -1,5 +1,5 @@
 FROM amazon/aws-cli
-RUN yum install -y \
+RUN yum -y update && yum install -y \
     git \
     unzip \
     curl \
@@ -7,6 +7,8 @@ RUN yum install -y \
     tar \
     openssl \
     which \
+    python3 \
+    python3-pip \
     && git clone https://github.com/tfutils/tfenv.git ~/.tfenv \
     && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
     && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
