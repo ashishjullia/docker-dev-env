@@ -2,6 +2,8 @@
 ```bash
 git clone https://github.com/ashishjullia/docker-dev-awscli.git && cd ansible/single-liner
 ```
+
+### Note: This is only required if you are not using portunus
 #### Create and ".env" file to pass the secrets
 ```bash
 TF_VERSION=
@@ -31,6 +33,14 @@ vim ~/.bashrc
 
 ```bash
 alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env --entrypoint /script.sh ashishjullia19/terraform-aws-cli"
+```
+
+With portunus integration:
+For `PORTUNUS_TOKEN` make sure to grab this from portunus ui `portunus.ashishjullia.com` and you'll get the token in format:
+`PORTUNUS_TOKEN=<TOKEN>/<PORTUNUS_TEAM>/<PORTUNUS_PROJECT>/<PORTUNUS_STAGE>`
+By default you can set the token on your host system under PORTUNUS_TOKEN until `<TOKEN>/<PORTUNUS_TEAM>/<PORTUNUS_PROJECT>`, the other parts of the token can be populated inside the container via `.env` file to keep things more dynamic (as once created the `PORTUNUS_TEAM` value remains the same for a user until and unless they are part of other teams as well)
+```bash
+alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env -e PORTUNUS_TOKEN=$PORTUNUS_TOKEN --entrypoint /script.sh ashishjullia19/terraform-aws-cli"
 ```
 
 ```bash
