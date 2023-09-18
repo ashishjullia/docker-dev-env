@@ -1,5 +1,5 @@
 FROM amazon/aws-cli
-RUN yum -y update && yum install -y \
+RUN yum -y update && yum -y updateinfo && yum install -y \
     git \
     jq \
     unzip \
@@ -16,8 +16,9 @@ RUN yum -y update && yum install -y \
     && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
     && chmod 700 get_helm.sh \
     && sh ./get_helm.sh \
+    && yum upgrade openssl \
+    && pip3 install print-env \
     && yum clean all \
-    && pip3 install print-env
 ENV PATH="/root/.tfenv/bin:$PATH"
 RUN mkdir /work
 WORKDIR /work
