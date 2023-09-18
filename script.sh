@@ -15,10 +15,10 @@ function error_exit {
     exit "${2:-1}"
 }
 
+while IFS="=" read -r key value; do export "$key=$(printf %b "$value")"; done < <(print-env --api https://portunusapiprod.ashishjullia.com/env --format json | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+
 # Check if the necessary environment variables are set, and exit with an error message if they're not
-[[ -z "${AWS_REGION}" ]] && error_exit "AWS_REGION is not set."
-[[ -z "${AWS_ACCESS_KEY_ID}" ]] && error_exit "AWS_ACCESS_KEY_ID is not set."
-[[ -z "${AWS_SECRET_ACCESS_KEY}" ]] && error_exit "AWS_SECRET_ACCESS_KEY is not set."
+[[ -z "${PORTUNUS_TOKEN}" ]] && error_exit "PORTUNUS_TOKEN is not set."
 
 # If TF_VERSION is set, use that. Otherwise, default to the latest version
 TF_VERSION="${TF_VERSION:-latest}"
