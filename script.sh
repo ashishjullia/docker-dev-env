@@ -14,6 +14,8 @@ for cmd in jq tfenv aws curl print-env; do
     command -v "$cmd" >/dev/null 2>&1 || error_exit "$cmd is required but not installed."
 done
 
+PORTUNUS_TOKEN="${PORTUNUS_TOKEN}${PORTUNUS_PROJECT}${PORTUNUS_STAGE}"
+
 # Ensure PORTUNUS_TOKEN is set
 [[ -z "${PORTUNUS_TOKEN}" ]] && error_exit "PORTUNUS_TOKEN is not set."
 
