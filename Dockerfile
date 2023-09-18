@@ -17,6 +17,7 @@ RUN yum -y update && yum -y updateinfo && yum install -y \
     && chmod 700 get_helm.sh \
     && sh ./get_helm.sh \
     && yum upgrade openssl \
+    && pip3 install urllib3==1.26.7 \
     && pip3 install print-env \
     && yum clean all
 ENV PATH="/root/.tfenv/bin:$PATH"
