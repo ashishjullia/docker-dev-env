@@ -18,7 +18,7 @@ RUN yum -y update && yum -y updateinfo && yum install -y \
     && sh ./get_helm.sh \
     && yum upgrade openssl \
     && pip3 install print-env \
-    && yum clean all \
+    && yum clean all
 ENV PATH="/root/.tfenv/bin:$PATH"
 RUN mkdir /work
 WORKDIR /work
