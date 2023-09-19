@@ -6,14 +6,8 @@ git clone https://github.com/ashishjullia/docker-dev-awscli.git && cd ansible/si
 ### Note: This is only required if you are not using portunus
 #### Create and ".env" file to pass the secrets
 ```bash
-TF_VERSION=
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_REGION=
-NAME_OF_CLUSTER=
-
-# Extra Utilities (Will be installed, only if populated)
-FLUX_VERSION=
+KEY=VALUE
+.........so on
 ```
 ```bash
 docker build -t terraform-aws-cli .
@@ -39,6 +33,11 @@ With portunus integration:
 For `PORTUNUS_TOKEN` make sure to grab this from portunus ui `portunus.ashishjullia.com` and you'll get the token in format:
 `PORTUNUS_TOKEN=<TOKEN>/<PORTUNUS_TEAM>/<PORTUNUS_PROJECT>/<PORTUNUS_STAGE>`. Then `<PORTUNUS_TEAM>` will not be same as you'll see in ui, it will be a random value.
 By default, you can set the token on your host system under PORTUNUS_TOKEN until `<TOKEN>/<PORTUNUS_TEAM>`, the other parts of the token can be populated inside the container via `.env` file to keep things more dynamic (as once created the `PORTUNUS_TEAM` value remains the same for a user until and unless they are part of other teams as well) OR you can also pass `<PORTUNUS_PROJECT>` `<PORTUNUS_STAGE>` via docker command itself just do `-e <PORTUNUS_PROJECT>=<PORTUNUS_PROJECT>` `-e <PORTUNUS_STAGE>=<PORTUNUS_PROJECT>` 
+For `.env`, use this:
+```bash
+PORTUNUS_PROJECT=<value>
+PORTUNUS_PROJECT=<value>
+```
 ```bash
 alias dev="docker run -it --rm -v $PWD:/work -w /work --env-file=.env -e PORTUNUS_TOKEN=$PORTUNUS_TOKEN --entrypoint /script.sh ashishjullia19/terraform-aws-cli"
 ```
