@@ -6,7 +6,7 @@ on:
       - 'prod-*'
 env:
   REGISTRY: ashishjullia19
-  IMAGE_NAME: terraform-aws-cli
+  IMAGE_NAME: docker-dev-env
 jobs:
   build:
     runs-on: ubuntu-latest
