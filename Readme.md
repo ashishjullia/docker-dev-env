@@ -42,3 +42,15 @@ Notes:
 ```bash
 dev
 ```
+
+## AWS MFA
+
+Inside the container, after AWS credentials are configured:
+
+```bash
+mfa 123456
+```
+
+`123456` is the code from your authenticator app. That command sources `/usr/local/bin/mfa.sh`, writes a session token to `~/.aws/credentials`, and exports `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` in the current shell.
+
+`source ./mfa.sh` does not work here. `dev` mounts the project on `/work`, so a script copied into the project is hidden or left behind in that repository. `mfa` stays in the image, outside that mount.

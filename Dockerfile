@@ -48,4 +48,6 @@ ENV PATH="/root/.tfenv/bin:$PATH"
 WORKDIR /work
 
 COPY ./script.sh /
-RUN chmod u+x /script.sh
+COPY ./mfa.sh /usr/local/bin/mfa.sh
+RUN chmod u+x /script.sh /usr/local/bin/mfa.sh \
+    && printf '\nmfa() { source /usr/local/bin/mfa.sh "$@"; }\n' >> /root/.bashrc
