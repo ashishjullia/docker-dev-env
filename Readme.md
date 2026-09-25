@@ -64,3 +64,9 @@ mfa 123456
 `123456` is the code from your authenticator app. That command sources `/usr/local/bin/mfa.sh`, writes a session token to `~/.aws/credentials`, and exports `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` in the current shell.
 
 `source ./mfa.sh` does not work here. `dev` mounts the project on `/work`, so a script copied into the project is hidden or left behind in that repository. `mfa` stays in the image, outside that mount.
+
+## Cloudflare CLI
+
+Wrangler is installed in the image. `dev <project>/<stage>` authenticates it when that Portunus project sets `CLOUDFLARE_API_TOKEN`. Wrangler reads that variable itself. An optional `CLOUDFLARE_ACCOUNT_ID` on the same project is passed through the same way.
+
+Startup runs `wrangler whoami`. A token that Cloudflare rejects stops the container. A project without `CLOUDFLARE_API_TOKEN` still opens a shell, and Wrangler commands in that shell are not authenticated. `dev` with no project does not load Portunus, so it does not authenticate Wrangler either.
