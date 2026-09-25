@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Exit on any error
-set -e
+# Exit on any error, including a failed command in a pipeline
+set -eo pipefail
 
 # Function to print an error and exit
 function error_exit {
@@ -13,9 +13,11 @@ function error_exit {
 if [ -n "${PORTUNUS_TOKEN}" ]; then
 
     # Fetch and export environment variables from a given API
-    while IFS="=" read -r key value; do 
+    portunus_env=$(print-env --api "https://portunusapiprod.ashishjullia.com/env" --format json | jq -r 'to_entries[] | "\(.key)=\(.value)"') || error_exit "Failed to fetch environment from Portunus"
+    while IFS="=" read -r key value; do
+        [ -n "$key" ] || continue
         export "$key=$(printf %b "$value")"
-    done < <(print-env --api "https://portunusapiprod.ashishjullia.com/env" --format json | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+    done <<< "$portunus_env"
 
     # Conditionally install Terraform version if TF_VERSION is set
     if [ -n "${TF_VERSION}" ]; then
@@ -41,18 +43,12 @@ if [ -n "${PORTUNUS_TOKEN}" ]; then
         aws eks update-kubeconfig --region "$AWS_REGION" --name "$NAME_OF_CLUSTER" || error_exit "Failed to update kubeconfig for cluster: ${NAME_OF_CLUSTER}"
     fi
 
-    # Install specified Flux version if provided
-    if [[ -n "$FLUX_VERSION" ]]; then
-        echo "Installing Flux version: ${FLUX_VERSION}"
-        curl -s https://fluxcd.io/install.sh | bash || error_exit "Failed to install Flux version: ${FLUX_VERSION}"
-    fi
-
     # Conditionally install Node.js version if NODE_VERSION is set
     if [ -n "${NODE_VERSION}" ]; then
         echo "NODE_VERSION is set to ${NODE_VERSION}. Installing Node.js version: ${NODE_VERSION}"
         export NVM_DIR="/usr/local/nvm"
         [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-        nvm install $NODE_VERSION
+        nvm install "$NODE_VERSION"
     else
         echo "NODE_VERSION is not set. Skipping Node.js installation."
     fi
@@ -60,7 +56,7 @@ if [ -n "${PORTUNUS_TOKEN}" ]; then
     # Authenticate GitHub CLI if GITHUB_TOKEN is provided
     if [ -n "${GH_CLI_TOKEN}" ]; then
         echo "Authenticating GitHub CLI..."
-        gh auth login --with-token <<< $GH_CLI_TOKEN 
+        gh auth login --with-token <<< "$GH_CLI_TOKEN"
         gh auth setup-git
     else
         echo "GH_CLI_TOKEN is not set. Skipping GitHub CLI authentication."
