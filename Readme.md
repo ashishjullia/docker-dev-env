@@ -45,7 +45,11 @@ dev
 
 ## AWS role
 
-If the Portunus project has `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_ROLE_TO_ASSUME`, the container assumes that role before the shell opens and prints the role and session expiry. The IAM user keys are not put in the environment or the default AWS profile. Commands use the assumed role, and if that role cannot be assumed the command fails instead of running as the IAM user. The AWS CLI assumes the role again after the session expires.
+`dev <project>/<stage>` loads whatever that Portunus project defines. Nothing here is tied to one account or role.
+
+If that project has `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_ROLE_TO_ASSUME`, the container assumes that role before the shell opens. The IAM user keys are not put in the environment or the default AWS profile. Commands use the assumed role, and if that role cannot be assumed the container exits instead of running as the IAM user.
+
+If that same project also has `AWS_MFA_SERIAL`, startup asks for an MFA code before the assume. The serial stays in Portunus. The code is typed each time. A different project or stage can omit any of these variables.
 
 `dev` with no project does not load Portunus, so that container does not assume a role. Keys without `AWS_ROLE_TO_ASSUME` still configure the default profile as the IAM user.
 

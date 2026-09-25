@@ -26,70 +26,46 @@ role_source_orig_file="${aws_dir}/role-source-orig.json"
 # the keys that call AssumeRole and does not export the IAM user into this shell.
 if [ -f "$role_source_file" ]; then
     mkdir -p "$aws_dir"
-    if [ ! -f "$role_source_orig_file" ]; then
-        cp "$role_source_file" "$role_source_orig_file"
-        chmod 600 "$role_source_orig_file"
+    base_file="$role_source_file"
+    if [ -f "$role_source_orig_file" ]; then
+        base_file="$role_source_orig_file"
     fi
 
-    role_arn=$(jq -r '.RoleArn // empty' "$role_source_orig_file")
-    base_access_key_id=$(jq -r '.AccessKeyId // empty' "$role_source_orig_file")
-    base_secret_access_key=$(jq -r '.SecretAccessKey // empty' "$role_source_orig_file")
-    base_session_token=$(jq -r '.SessionToken // empty' "$role_source_orig_file")
+    role_arn=$(jq -r '.RoleArn // empty' "$role_source_file")
+    base_access_key_id=$(jq -r '.AccessKeyId // empty' "$base_file")
+    base_secret_access_key=$(jq -r '.SecretAccessKey // empty' "$base_file")
+    base_session_token=$(jq -r '.SessionToken // empty' "$base_file")
     if [ -z "$role_arn" ] || [ -z "$base_access_key_id" ] || [ -z "$base_secret_access_key" ]; then
         echo "Role source file is incomplete." >&2
         return 1 2>/dev/null || exit 1
     fi
 
-    run_as_user() {
-        unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE
-        export AWS_ACCESS_KEY_ID="$base_access_key_id"
-        export AWS_SECRET_ACCESS_KEY="$base_secret_access_key"
-        if [ -n "$base_session_token" ]; then
-            export AWS_SESSION_TOKEN="$base_session_token"
-        else
-            unset AWS_SESSION_TOKEN
+    if [ -n "${AWS_MFA_SERIAL:-}" ]; then
+        mfa_serial="$AWS_MFA_SERIAL"
+    else
+        run_as_user() {
+            unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE
+            export AWS_ACCESS_KEY_ID="$base_access_key_id"
+            export AWS_SECRET_ACCESS_KEY="$base_secret_access_key"
+            if [ -n "$base_session_token" ]; then
+                export AWS_SESSION_TOKEN="$base_session_token"
+            else
+                unset AWS_SESSION_TOKEN
+            fi
+            aws "$@"
+        }
+        mfa_serial=$(run_as_user iam list-mfa-devices | jq -r '.MFADevices[0].SerialNumber // empty')
+        unset -f run_as_user
+        if [ -z "$mfa_serial" ]; then
+            echo "Failed to retrieve an MFA device. Set AWS_MFA_SERIAL on this Portunus project." >&2
+            return 1 2>/dev/null || exit 1
         fi
-        aws "$@"
-    }
-
-    mfa_device_code=$(run_as_user iam list-mfa-devices | jq -r '.MFADevices[0].SerialNumber // empty')
-    if [ -z "$mfa_device_code" ]; then
-        unset -f run_as_user
-        echo "Failed to retrieve an MFA device. Check that the long-lived IAM user keys are valid." >&2
-        return 1 2>/dev/null || exit 1
     fi
 
-    echo "aws sts get-session-token --duration-seconds ${session_duration} --serial-number ${mfa_device_code} --token-code ${mfa_code}"
-    if ! (
-        run_as_user sts get-session-token \
-            --duration-seconds "$session_duration" \
-            --serial-number "$mfa_device_code" \
-            --token-code "$mfa_code" > "$tmp_creds_file"
-    ); then
-        unset -f run_as_user
+    if ! expiry=$(/usr/local/bin/aws-mfa-session "$mfa_serial" "$mfa_code"); then
         echo "Request failed" >&2
         return 1 2>/dev/null || exit 1
     fi
-    unset -f run_as_user
-
-    access_key_id=$(jq -r '.Credentials.AccessKeyId // empty' "$tmp_creds_file")
-    secret_access_key=$(jq -r '.Credentials.SecretAccessKey // empty' "$tmp_creds_file")
-    session_token=$(jq -r '.Credentials.SessionToken // empty' "$tmp_creds_file")
-    expiry=$(jq -r '.Credentials.Expiration // empty' "$tmp_creds_file")
-    rm -f "$tmp_creds_file"
-    if [ -z "$access_key_id" ] || [ -z "$secret_access_key" ] || [ -z "$session_token" ]; then
-        echo "Request failed" >&2
-        return 1 2>/dev/null || exit 1
-    fi
-
-    jq -n \
-        --arg RoleArn "$role_arn" \
-        --arg AccessKeyId "$access_key_id" \
-        --arg SecretAccessKey "$secret_access_key" \
-        --arg SessionToken "$session_token" \
-        '{RoleArn:$RoleArn, AccessKeyId:$AccessKeyId, SecretAccessKey:$SecretAccessKey, SessionToken:$SessionToken}' \
-        > "$role_source_file"
-    chmod 600 "$role_source_file"
     rm -f "$aws_creds_file"
     unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \
         AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SHARED_CREDENTIALS_FILE AWS_CONFIG_FILE
@@ -134,9 +110,13 @@ fi
 cp "$orig_creds_file" "$aws_creds_file"
 chmod 600 "$aws_creds_file"
 
-mfa_device_code=$(aws iam list-mfa-devices | jq -r '.MFADevices[0].SerialNumber // empty')
+if [ -n "${AWS_MFA_SERIAL:-}" ]; then
+    mfa_device_code="$AWS_MFA_SERIAL"
+else
+    mfa_device_code=$(aws iam list-mfa-devices | jq -r '.MFADevices[0].SerialNumber // empty')
+fi
 if [ -z "$mfa_device_code" ]; then
-    echo "Failed to retrieve an MFA device. Check that the AWS CLI is using the long-lived credentials." >&2
+    echo "Failed to retrieve an MFA device. Set AWS_MFA_SERIAL on this Portunus project, or check that the AWS CLI is using the long-lived credentials." >&2
     return 1 2>/dev/null || exit 1
 fi
 

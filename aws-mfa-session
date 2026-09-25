@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Turn long-lived IAM user keys into an MFA session, then store that session
+# as the only credentials allowed to call AssumeRole.
+# Usage: aws-mfa-session <mfa-serial> <mfa-code>
+set -euo pipefail
+
+serial="${1:-}"
+code="${2:-}"
+if [ -z "$serial" ] || [ -z "$code" ]; then
+    echo "Usage: aws-mfa-session <mfa-serial> <mfa-code>" >&2
+    exit 1
+fi
+
+aws_dir="${HOME}/.aws"
+source_file="${aws_dir}/role-source.json"
+orig_file="${aws_dir}/role-source-orig.json"
+tmp_file="${aws_dir}/tempcreds"
+session_duration=129600
+
+if [ ! -f "$orig_file" ]; then
+    if [ ! -f "$source_file" ]; then
+        echo "Missing ${source_file}" >&2
+        exit 1
+    fi
+    cp "$source_file" "$orig_file"
+    chmod 600 "$orig_file"
+fi
+
+role_arn=$(jq -r '.RoleArn // empty' "$orig_file")
+access_key_id=$(jq -r '.AccessKeyId // empty' "$orig_file")
+secret_access_key=$(jq -r '.SecretAccessKey // empty' "$orig_file")
+base_session_token=$(jq -r '.SessionToken // empty' "$orig_file")
+if [ -z "$role_arn" ] || [ -z "$access_key_id" ] || [ -z "$secret_access_key" ]; then
+    echo "Role source file is incomplete." >&2
+    exit 1
+fi
+
+echo "Requesting an MFA session." >&2
+sts_json=$(
+    unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE \
+        AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_CONTAINER_CREDENTIALS_FULL_URI \
+        AWS_WEB_IDENTITY_TOKEN_FILE AWS_ROLE_ARN
+    export AWS_ACCESS_KEY_ID="$access_key_id"
+    export AWS_SECRET_ACCESS_KEY="$secret_access_key"
+    if [ -n "$base_session_token" ]; then
+        export AWS_SESSION_TOKEN="$base_session_token"
+    else
+        unset AWS_SESSION_TOKEN
+    fi
+    aws sts get-session-token \
+        --duration-seconds "$session_duration" \
+        --serial-number "$serial" \
+        --token-code "$code" \
+        --output json
+) || exit 1
+
+session_access_key_id=$(jq -r '.Credentials.AccessKeyId // empty' <<<"$sts_json")
+session_secret_access_key=$(jq -r '.Credentials.SecretAccessKey // empty' <<<"$sts_json")
+session_token=$(jq -r '.Credentials.SessionToken // empty' <<<"$sts_json")
+expiry=$(jq -r '.Credentials.Expiration // empty' <<<"$sts_json")
+rm -f "$tmp_file"
+if [ -z "$session_access_key_id" ] || [ -z "$session_secret_access_key" ] || [ -z "$session_token" ]; then
+    echo "MFA session response was incomplete." >&2
+    exit 1
+fi
+
+jq -n \
+    --arg RoleArn "$role_arn" \
+    --arg AccessKeyId "$session_access_key_id" \
+    --arg SecretAccessKey "$session_secret_access_key" \
+    --arg SessionToken "$session_token" \
+    '{RoleArn:$RoleArn, AccessKeyId:$AccessKeyId, SecretAccessKey:$SecretAccessKey, SessionToken:$SessionToken}' \
+    > "$source_file"
+chmod 600 "$source_file"
+printf '%s\n' "$expiry"
