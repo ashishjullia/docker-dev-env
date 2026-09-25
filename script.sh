@@ -58,7 +58,21 @@ EOF
                 AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_CONTAINER_CREDENTIALS_FULL_URI \
                 AWS_CONTAINER_AUTHORIZATION_TOKEN AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE \
                 AWS_WEB_IDENTITY_TOKEN_FILE AWS_ROLE_ARN AWS_ROLE_SESSION_NAME AWS_CREDENTIAL_EXPIRATION
-            caller_arn=$(aws sts get-caller-identity --query Arn --output text) || error_exit "Failed to assume role: ${AWS_ROLE_TO_ASSUME}"
+            # AWS_MFA_SERIAL comes from this Portunus project. The one-time code does not.
+            if [ -n "${AWS_MFA_SERIAL:-}" ]; then
+                echo "MFA is required before assuming ${AWS_ROLE_TO_ASSUME}."
+                if ! read -r -s -p "MFA code: " mfa_code </dev/tty 2>/dev/null; then
+                    read -r -s -p "MFA code: " mfa_code || error_exit "AWS_MFA_SERIAL is set for this project, but there is no terminal to read an MFA code."
+                    printf '\n'
+                else
+                    printf '\n' >/dev/tty
+                fi
+                if [ -z "${mfa_code}" ]; then
+                    error_exit "An MFA code is required to assume ${AWS_ROLE_TO_ASSUME}."
+                fi
+                /usr/local/bin/aws-mfa-session "$AWS_MFA_SERIAL" "$mfa_code" >/dev/null || error_exit "Failed to create an MFA session for ${AWS_ROLE_TO_ASSUME}."
+            fi
+            caller_arn=$(aws sts get-caller-identity --query Arn --output text) || error_exit "Failed to assume role: ${AWS_ROLE_TO_ASSUME}. If this account requires MFA, set AWS_MFA_SERIAL on this Portunus project."
             role_name=${AWS_ROLE_TO_ASSUME##*/}
             case "$caller_arn" in
                 arn:aws:sts::*:assumed-role/${role_name}/*) ;;

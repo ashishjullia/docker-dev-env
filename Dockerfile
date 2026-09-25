@@ -50,5 +50,6 @@ WORKDIR /work
 COPY ./script.sh /
 COPY ./mfa.sh /usr/local/bin/mfa.sh
 COPY ./aws-role-credentials /usr/local/bin/aws-role-credentials
-RUN chmod u+x /script.sh /usr/local/bin/mfa.sh /usr/local/bin/aws-role-credentials \
+COPY ./aws-mfa-session /usr/local/bin/aws-mfa-session
+RUN chmod u+x /script.sh /usr/local/bin/mfa.sh /usr/local/bin/aws-role-credentials /usr/local/bin/aws-mfa-session \
     && printf '\nmfa() { source /usr/local/bin/mfa.sh "$@"; }\n' >> /root/.bashrc
