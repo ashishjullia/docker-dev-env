@@ -29,31 +29,44 @@ if [ -n "${PORTUNUS_TOKEN}" ]; then
     fi
 
     # Conditionally configure AWS if AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are set.
-    # When AWS_ROLE_TO_ASSUME is also set, keep the IAM user keys in the "source"
-    # profile and make the default profile assume that role. The AWS CLI then
-    # assumes the role again on its own after the session expires.
+    # When AWS_ROLE_TO_ASSUME is also set, the IAM user keys are stored outside the
+    # AWS credentials file. The default profile can only obtain credentials by
+    # assuming that role, and a failed assume fails the command.
     if [ -n "${AWS_REGION}" ] && [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
         echo "Configuring AWS with region: ${AWS_REGION}"
         if [ -n "${AWS_ROLE_TO_ASSUME}" ]; then
-            aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile source || error_exit "Failed to set AWS access key."
-            aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile source || error_exit "Failed to set AWS secret access key."
-            aws configure set region "$AWS_REGION" --profile source || error_exit "Failed to set AWS region: ${AWS_REGION}"
-            if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
-                aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile source || error_exit "Failed to set AWS session token."
-            fi
-            aws configure set role_arn "$AWS_ROLE_TO_ASSUME" || error_exit "Failed to set role: ${AWS_ROLE_TO_ASSUME}"
-            aws configure set source_profile source || error_exit "Failed to set source profile for role: ${AWS_ROLE_TO_ASSUME}"
-            aws configure set region "$AWS_REGION" || error_exit "Failed to set AWS region: ${AWS_REGION}"
-            # Environment credentials override the role profile, so drop the IAM user keys.
-            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+            mkdir -p "${HOME}/.aws"
+            chmod 700 "${HOME}/.aws"
+            jq -n \
+                --arg RoleArn "$AWS_ROLE_TO_ASSUME" \
+                --arg AccessKeyId "$AWS_ACCESS_KEY_ID" \
+                --arg SecretAccessKey "$AWS_SECRET_ACCESS_KEY" \
+                --arg SessionToken "${AWS_SESSION_TOKEN:-}" \
+                '{RoleArn:$RoleArn, AccessKeyId:$AccessKeyId, SecretAccessKey:$SecretAccessKey, SessionToken:$SessionToken}' \
+                > "${HOME}/.aws/role-source.json" || error_exit "Failed to store role source credentials."
+            chmod 600 "${HOME}/.aws/role-source.json"
+            # A default access key in this file wins over the role and would run commands as the IAM user.
+            rm -f "${HOME}/.aws/credentials"
+            cat > "${HOME}/.aws/config" << EOF
+[default]
+region = ${AWS_REGION}
+credential_process = /usr/local/bin/aws-role-credentials
+EOF
+            chmod 600 "${HOME}/.aws/config"
+            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \
+                AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SHARED_CREDENTIALS_FILE AWS_CONFIG_FILE \
+                AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_CONTAINER_CREDENTIALS_FULL_URI \
+                AWS_CONTAINER_AUTHORIZATION_TOKEN AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE \
+                AWS_WEB_IDENTITY_TOKEN_FILE AWS_ROLE_ARN AWS_ROLE_SESSION_NAME AWS_CREDENTIAL_EXPIRATION
             caller_arn=$(aws sts get-caller-identity --query Arn --output text) || error_exit "Failed to assume role: ${AWS_ROLE_TO_ASSUME}"
+            role_name=${AWS_ROLE_TO_ASSUME##*/}
+            case "$caller_arn" in
+                arn:aws:sts::*:assumed-role/${role_name}/*) ;;
+                *) error_exit "Refusing to open a shell. AWS CLI resolved to ${caller_arn}, not assumed role ${AWS_ROLE_TO_ASSUME}." ;;
+            esac
             expiry=""
-            if [ -d "${HOME}/.aws/cli/cache" ]; then
-                for cache_file in "${HOME}/.aws/cli/cache"/*.json; do
-                    [ -f "$cache_file" ] || continue
-                    candidate=$(jq -r '.Credentials.Expiration // empty' "$cache_file")
-                    [ -n "$candidate" ] && expiry=$candidate
-                done
+            if [ -f "${HOME}/.aws/role-expiration" ]; then
+                expiry=$(cat "${HOME}/.aws/role-expiration")
             fi
             if [ -n "$expiry" ] && expiry_local=$(date -d "$expiry" 2>/dev/null); then
                 expiry_display=$expiry_local
@@ -63,6 +76,7 @@ if [ -n "${PORTUNUS_TOKEN}" ]; then
             echo "Assumed role ${AWS_ROLE_TO_ASSUME}"
             echo "Caller: ${caller_arn}"
             echo "Session expires at: ${expiry_display}. The AWS CLI assumes this role again when it expires."
+            echo "Commands will not run with the IAM user keys. If the role cannot be assumed, the command fails."
             echo "Run dev with no project to start a container that does not assume this role."
         else
             aws configure set region "$AWS_REGION" || error_exit "Failed to set AWS region: ${AWS_REGION}"
