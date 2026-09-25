@@ -43,6 +43,12 @@ Notes:
 dev
 ```
 
+## AWS role
+
+If the Portunus project has `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_ROLE_TO_ASSUME`, the container assumes that role before the shell opens and prints the role and session expiry. The AWS CLI assumes it again after expiry, using the IAM user keys saved in the `source` profile.
+
+`dev` with no project does not load Portunus, so that container does not assume a role.
+
 ## AWS MFA
 
 Inside the container, after AWS credentials are configured:

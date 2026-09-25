@@ -28,12 +28,49 @@ if [ -n "${PORTUNUS_TOKEN}" ]; then
         echo "TF_VERSION is not set. Skipping Terraform installation."
     fi
 
-    # Conditionally configure AWS if AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are set
+    # Conditionally configure AWS if AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are set.
+    # When AWS_ROLE_TO_ASSUME is also set, keep the IAM user keys in the "source"
+    # profile and make the default profile assume that role. The AWS CLI then
+    # assumes the role again on its own after the session expires.
     if [ -n "${AWS_REGION}" ] && [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
         echo "Configuring AWS with region: ${AWS_REGION}"
-        aws configure set region "$AWS_REGION" || error_exit "Failed to set AWS region: ${AWS_REGION}"
-        aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" || error_exit "Failed to set AWS access key."
-        aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" || error_exit "Failed to set AWS secret access key."
+        if [ -n "${AWS_ROLE_TO_ASSUME}" ]; then
+            aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile source || error_exit "Failed to set AWS access key."
+            aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile source || error_exit "Failed to set AWS secret access key."
+            aws configure set region "$AWS_REGION" --profile source || error_exit "Failed to set AWS region: ${AWS_REGION}"
+            if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+                aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile source || error_exit "Failed to set AWS session token."
+            fi
+            aws configure set role_arn "$AWS_ROLE_TO_ASSUME" || error_exit "Failed to set role: ${AWS_ROLE_TO_ASSUME}"
+            aws configure set source_profile source || error_exit "Failed to set source profile for role: ${AWS_ROLE_TO_ASSUME}"
+            aws configure set region "$AWS_REGION" || error_exit "Failed to set AWS region: ${AWS_REGION}"
+            # Environment credentials override the role profile, so drop the IAM user keys.
+            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+            caller_arn=$(aws sts get-caller-identity --query Arn --output text) || error_exit "Failed to assume role: ${AWS_ROLE_TO_ASSUME}"
+            expiry=""
+            if [ -d "${HOME}/.aws/cli/cache" ]; then
+                for cache_file in "${HOME}/.aws/cli/cache"/*.json; do
+                    [ -f "$cache_file" ] || continue
+                    candidate=$(jq -r '.Credentials.Expiration // empty' "$cache_file")
+                    [ -n "$candidate" ] && expiry=$candidate
+                done
+            fi
+            if [ -n "$expiry" ] && expiry_local=$(date -d "$expiry" 2>/dev/null); then
+                expiry_display=$expiry_local
+            else
+                expiry_display=${expiry:-unknown}
+            fi
+            echo "Assumed role ${AWS_ROLE_TO_ASSUME}"
+            echo "Caller: ${caller_arn}"
+            echo "Session expires at: ${expiry_display}. The AWS CLI assumes this role again when it expires."
+            echo "Run dev with no project to start a container that does not assume this role."
+        else
+            aws configure set region "$AWS_REGION" || error_exit "Failed to set AWS region: ${AWS_REGION}"
+            aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" || error_exit "Failed to set AWS access key."
+            aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" || error_exit "Failed to set AWS secret access key."
+        fi
+    elif [ -n "${AWS_ROLE_TO_ASSUME:-}" ]; then
+        error_exit "AWS_ROLE_TO_ASSUME is set, but AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are required to assume it."
     else
         echo "AWS configuration variables are not fully set. Skipping AWS configuration."
     fi
