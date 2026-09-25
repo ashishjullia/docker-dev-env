@@ -61,11 +61,13 @@ EOF
             # AWS_MFA_SERIAL comes from this Portunus project. The one-time code does not.
             if [ -n "${AWS_MFA_SERIAL:-}" ]; then
                 echo "MFA is required before assuming ${AWS_ROLE_TO_ASSUME}."
-                if ! read -r -s -p "MFA code: " mfa_code </dev/tty 2>/dev/null; then
-                    read -r -s -p "MFA code: " mfa_code || error_exit "AWS_MFA_SERIAL is set for this project, but there is no terminal to read an MFA code."
-                    printf '\n'
+                # read -p writes the prompt to stderr. Discarding stderr hides it and looks like a hang.
+                if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+                    printf 'MFA code: ' >/dev/tty
+                    IFS= read -r mfa_code </dev/tty || error_exit "AWS_MFA_SERIAL is set for this project, but the MFA code could not be read."
                 else
-                    printf '\n' >/dev/tty
+                    printf 'MFA code: ' >&2
+                    IFS= read -r mfa_code || error_exit "AWS_MFA_SERIAL is set for this project, but there is no terminal to read an MFA code."
                 fi
                 if [ -z "${mfa_code}" ]; then
                     error_exit "An MFA code is required to assume ${AWS_ROLE_TO_ASSUME}."
