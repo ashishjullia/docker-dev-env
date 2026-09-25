@@ -67,6 +67,6 @@ mfa 123456
 
 ## Cloudflare CLI
 
-Wrangler is installed in the image. `dev <project>/<stage>` authenticates it when that Portunus project sets `CLOUDFLARE_API_TOKEN`. Wrangler reads that variable itself. An optional `CLOUDFLARE_ACCOUNT_ID` on the same project is passed through the same way.
+Wrangler is installed in the image. `dev <project>/<stage>` leaves `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment when that Portunus project sets them. Wrangler reads both itself.
 
-Startup runs `wrangler whoami`. A token that Cloudflare rejects stops the container. A project without `CLOUDFLARE_API_TOKEN` still opens a shell, and Wrangler commands in that shell are not authenticated. `dev` with no project does not load Portunus, so it does not authenticate Wrangler either.
+Startup does not call `wrangler whoami`. That command lists account memberships, and an account API token cannot do that even when `CLOUDFLARE_ACCOUNT_ID` is set. A bad token fails the Wrangler command you run. A project without `CLOUDFLARE_API_TOKEN` still opens a shell, and Wrangler commands in that shell are not authenticated. `dev` with no project does not load Portunus, so it does not authenticate Wrangler either.

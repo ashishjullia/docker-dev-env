@@ -129,11 +129,15 @@ EOF
         echo "GH_CLI_TOKEN is not set. Skipping GitHub CLI authentication."
     fi
 
-    # Wrangler reads CLOUDFLARE_API_TOKEN from the environment. Portunus exports it
-    # when this project defines it. Run whoami outside /work so it cannot write into the mounted project.
+    # Wrangler reads these from the environment. whoami always lists memberships, which
+    # an account API token cannot do, so startup does not call it.
     if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
-        echo "Authenticating Cloudflare CLI..."
-        ( cd /tmp && CI=true WRANGLER_SEND_METRICS=false wrangler whoami ) || error_exit "Failed to authenticate the Cloudflare CLI. Check CLOUDFLARE_API_TOKEN on this Portunus project."
+        if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "Cloudflare CLI will use CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from this Portunus project."
+        else
+            echo "Cloudflare CLI will use CLOUDFLARE_API_TOKEN from this Portunus project."
+            echo "Set CLOUDFLARE_ACCOUNT_ID on this project when a Wrangler command needs an account."
+        fi
     else
         echo "CLOUDFLARE_API_TOKEN is not set. Skipping Cloudflare CLI authentication."
     fi
