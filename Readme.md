@@ -19,10 +19,33 @@ function dev() {
         docker_cmd+=" -e PORTUNUS_TOKEN=${PORTUNUS_TOKEN}/$1"
     fi
 
+    # Name the container dev-<project>-<stage> (or dev-<dirname>) so it can be found with docker ps / docker exec
+    local base name n=1
+    if [ "$#" -eq 1 ]; then
+        base="dev-${1%%/*}-${1#*/}"
+    else
+        base="dev-$(basename "$PWD")"
+    fi
+    base=${base//[^a-zA-Z0-9_.-]/-}
+    name=$base
+    while sudo docker ps --format '{{.Names}}' | grep -qx "$name"; do n=$((n+1)); name="$base-$n"; done
+    docker_cmd+=" --name $name --hostname $name"
+
     docker_cmd+=" --entrypoint /script.sh ashishjullia19/docker-dev-env"
     eval $docker_cmd
 }
 ```
+
+## Container names
+
+Each container is named `dev-<project>-<stage>` (or `dev-<dirname>` when run without a project). If that name is already running, `-2`, `-3` and so on are added. The name is also the hostname, so the shell prompt shows which container you are in.
+
+```bash
+docker ps --filter name=dev-
+docker exec -it <name> /script.sh
+```
+
+A plain `docker exec -it <name> bash` does not see the Portunus variables, because `script.sh` exports them only into the shell it starts. Run `/script.sh` through `docker exec` to get the same environment. It asks for the MFA code again when the project has `AWS_MFA_SERIAL`.
 
 ## With portunus integration:
 

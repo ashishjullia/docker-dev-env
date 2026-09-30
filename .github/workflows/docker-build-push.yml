@@ -3,6 +3,15 @@ on:
   pull_request:
   push:
     branches: [ "main" ]
+    # Only files that end up in the image republish it. Pull requests stay
+    # unfiltered so the required "build" check always reports.
+    paths:
+      - 'Dockerfile'
+      - 'script.sh'
+      - 'mfa.sh'
+      - 'aws-role-credentials'
+      - 'aws-mfa-session'
+      - '.github/workflows/docker-build-push.yml'
     tags:
       - 'prod-*'
 env:
