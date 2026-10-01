@@ -98,6 +98,22 @@ EOF
             aws configure set region "$AWS_REGION" || error_exit "Failed to set AWS region: ${AWS_REGION}"
             aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" || error_exit "Failed to set AWS access key."
             aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" || error_exit "Failed to set AWS secret access key."
+            # No role to assume, so the IAM user itself needs the MFA session. mfa.sh writes it
+            # to the credentials file and exports it, and the shell opened below inherits it.
+            if [ -n "${AWS_MFA_SERIAL:-}" ]; then
+                echo "MFA is required for this project."
+                if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+                    printf 'MFA code: ' >/dev/tty
+                    IFS= read -r mfa_code </dev/tty || error_exit "AWS_MFA_SERIAL is set for this project, but the MFA code could not be read."
+                else
+                    printf 'MFA code: ' >&2
+                    IFS= read -r mfa_code || error_exit "AWS_MFA_SERIAL is set for this project, but there is no terminal to read an MFA code."
+                fi
+                if [ -z "${mfa_code}" ]; then
+                    error_exit "An MFA code is required for this project."
+                fi
+                source /usr/local/bin/mfa.sh "$mfa_code" || error_exit "Failed to create an MFA session."
+            fi
         fi
     elif [ -n "${AWS_ROLE_TO_ASSUME:-}" ]; then
         error_exit "AWS_ROLE_TO_ASSUME is set, but AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are required to assume it."

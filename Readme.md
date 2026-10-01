@@ -74,6 +74,8 @@ If that project has `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, 
 
 If that same project also has `AWS_MFA_SERIAL`, startup asks for an MFA code before the assume. The serial stays in Portunus. The code is typed each time. A different project or stage can omit any of these variables.
 
+Without `AWS_ROLE_TO_ASSUME`, a project that has `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_MFA_SERIAL` also asks for an MFA code at startup. The session token is written to `~/.aws/credentials` and exported in the shell, the same as running `mfa <code>` yourself.
+
 `dev` with no project does not load Portunus, so that container does not assume a role. Keys without `AWS_ROLE_TO_ASSUME` still configure the default profile as the IAM user.
 
 ## AWS MFA
