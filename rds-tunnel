@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Open a tunnel from this container to an RDS database through an SSM bastion.
+#
+#   rds-tunnel [RDS_HOST]        # or set RDS_HOST
+#
+# Then connect from the Mac to 127.0.0.1:3306. This works because `dev` starts the
+# container with --network host (Docker Desktop shares the container's localhost with the Mac).
+# Ctrl-C closes the tunnel.
+#
+# Env: RDS_HOST (the endpoint), BASTION_NAME (the bastion's Name tag), AWS_REGION, RDS_PORT, LOCAL_PORT
+set -euo pipefail
+
+REGION="${AWS_REGION:-ca-central-1}"
+BASTION_NAME="${BASTION_NAME:-paymi-prod-ssm-debug}"
+RDS_HOST="${1:-${RDS_HOST:-}}"
+RDS_PORT="${RDS_PORT:-3306}"
+LOCAL_PORT="${LOCAL_PORT:-3306}"
+
+die() { echo "ERROR: $*" >&2; exit 1; }
+
+[ -n "$RDS_HOST" ] || die "RDS endpoint required: rds-tunnel <rds-endpoint> (or set RDS_HOST)"
+aws --region "$REGION" sts get-caller-identity >/dev/null 2>&1 || die "No working AWS session in this container (MFA expired? run: mfa <code>)"
+
+ID=$(aws --region "$REGION" ec2 describe-instances \
+  --filters "Name=tag:Name,Values=$BASTION_NAME" "Name=instance-state-name,Values=running" \
+  --query "sort_by(Reservations[].Instances[], &LaunchTime)[0].InstanceId" --output text)
+{ [ -n "$ID" ] && [ "$ID" != "None" ]; } || die "No running instance tagged Name=$BASTION_NAME"
+
+echo "Tunnel: Mac 127.0.0.1:$LOCAL_PORT -> $RDS_HOST:$RDS_PORT via $BASTION_NAME ($ID). Ctrl-C to close."
+aws --region "$REGION" ssm start-session --target "$ID" \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters "host=$RDS_HOST,portNumber=$RDS_PORT,localPortNumber=$LOCAL_PORT"

@@ -19,13 +19,16 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         python3-yaml \
     && arch=$(dpkg --print-architecture) \
     && case "$arch" in \
-        amd64) aws_cli_url="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"; kubectl_arch="amd64"; node_arch="x64" ;; \
-        arm64) aws_cli_url="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip"; kubectl_arch="arm64"; node_arch="arm64" ;; \
+        amd64) aws_cli_url="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"; kubectl_arch="amd64"; node_arch="x64"; ssm_plugin_arch="ubuntu_64bit" ;; \
+        arm64) aws_cli_url="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip"; kubectl_arch="arm64"; node_arch="arm64"; ssm_plugin_arch="ubuntu_arm64" ;; \
         *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
     esac \
     && curl -fsSL "$aws_cli_url" -o awscliv2.zip \
     && unzip awscliv2.zip \
     && ./aws/install \
+    && curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/${ssm_plugin_arch}/session-manager-plugin.deb" -o ssm-plugin.deb \
+    && dpkg -i ssm-plugin.deb \
+    && session-manager-plugin --version \
     && curl -fsSL -o kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/${kubectl_arch}/kubectl" \
     && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
     && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
@@ -50,7 +53,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     && chmod 755 /usr/local/bin/wrangler \
     && wrangler --version \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* awscliv2.zip aws kubectl get_helm.sh node.tar.gz
+    && rm -rf /var/lib/apt/lists/* ssm-plugin.deb awscliv2.zip aws kubectl get_helm.sh node.tar.gz
 
 # tfenv is a real binary path. nvm is a shell function loaded by script.sh,
 # so a node version directory cannot be added here.
@@ -62,5 +65,6 @@ COPY ./script.sh /
 COPY ./mfa.sh /usr/local/bin/mfa.sh
 COPY ./aws-role-credentials /usr/local/bin/aws-role-credentials
 COPY ./aws-mfa-session /usr/local/bin/aws-mfa-session
-RUN chmod u+x /script.sh /usr/local/bin/mfa.sh /usr/local/bin/aws-role-credentials /usr/local/bin/aws-mfa-session \
+COPY ./rds-tunnel /usr/local/bin/rds-tunnel
+RUN chmod u+x /script.sh /usr/local/bin/mfa.sh /usr/local/bin/aws-role-credentials /usr/local/bin/aws-mfa-session /usr/local/bin/rds-tunnel \
     && printf '\nmfa() { source /usr/local/bin/mfa.sh "$@"; }\n' >> /root/.bashrc

@@ -78,6 +78,22 @@ Without `AWS_ROLE_TO_ASSUME`, a project that has `AWS_REGION`, `AWS_ACCESS_KEY_I
 
 `dev` with no project does not load Portunus, so that container does not assume a role. Keys without `AWS_ROLE_TO_ASSUME` still configure the default profile as the IAM user.
 
+## RDS tunnel
+
+The image has `session-manager-plugin` and an `rds-tunnel` command. Set `RDS_HOST=<rds-endpoint>` as a key in the Portunus project (or `export` it in the shell), then:
+
+```bash
+rds-tunnel
+```
+
+An argument overrides the variable: `rds-tunnel <other-endpoint>`.
+
+Connect from the Mac to `127.0.0.1:3306` with any MySQL client. Ctrl-C closes the tunnel.
+
+- It needs an AWS session in the container that is allowed to start SSM sessions on the bastion, and the bastion must be running. The bastion is found by its `Name` tag, set with `BASTION_NAME`.
+- No port publishing is needed: `dev` uses `--network host`, and Docker Desktop shares the container's localhost with the Mac. Without `--network host` the Mac cannot reach it.
+- Port 3306 on the Mac must be free. Use `LOCAL_PORT=3307 rds-tunnel` otherwise.
+
 ## AWS MFA
 
 Inside the container, after AWS credentials are configured:
