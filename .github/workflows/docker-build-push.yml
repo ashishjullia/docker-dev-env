@@ -11,6 +11,7 @@ on:
       - 'mfa.sh'
       - 'aws-role-credentials'
       - 'aws-mfa-session'
+      - 'rds-tunnel'
       - '.github/workflows/docker-build-push.yml'
     tags:
       - 'prod-*'
